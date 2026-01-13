@@ -1,4 +1,4 @@
-# AI Screen Composer (Anthropic + shadcn)
+# Banani... NANIII?
 
 This app generates **Screens** (rendered HTML) from natural language prompts, where every screen is composed of **reusable Components**.
 
