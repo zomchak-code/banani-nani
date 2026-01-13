@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Screen Composer (Anthropic + shadcn)
 
-## Getting Started
+This app generates **Screens** (rendered HTML) from natural language prompts, where every screen is composed of **reusable Components**.
 
-First, run the development server:
+## Setup
+
+1) Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+bun install
+```
+
+2) Set environment variables:
+
+```bash
+export ANTHROPIC_API_KEY="your_key_here"
+```
+
+Optional:
+
+```bash
+export ANTHROPIC_MODEL="claude-sonnet-4-20250514"
+export ANTHROPIC_MAX_TOKENS="6000"
+export ANTHROPIC_TEMPERATURE="0.2"
+```
+
+3) Run the dev server:
+
+```bash
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How it works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Prompt box**: enter a request like “Dashboard showing sales metrics with a sidebar navigation”.
+- The server route `src/app/api/generate/route.ts` calls Anthropic and returns **strict JSON**:
+  - `action: "regenerate"` with a full new screen (components + layout), or
+  - `action: "patch"` with a small set of component updates and/or layout operations.
+- The client stores screen state in-memory as:
+  - `components`: map of `componentId -> { name, html }`
+  - `layout`: ordered array of componentIds
+- The preview is rendered in a sandboxed iframe (`srcDoc`) with **Tailwind CDN** enabled.
 
-## Learn More
+## Reset
 
-To learn more about Next.js, take a look at the following resources:
+The Reset button clears message history, the current screen, and all components.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
