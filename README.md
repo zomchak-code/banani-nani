@@ -26,4 +26,4 @@ BRAINTRUST_PROJECT_NAME=braintrust-project-name
 bun dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000`
