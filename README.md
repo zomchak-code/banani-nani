@@ -13,7 +13,7 @@ bun install
 2) Set environment variables:
 
 ```bash
-ANTHROPIC_API_KEY=your_key_here
+ANTHROPIC_API_KEY=anthropic-api-key
 
 BRAINTRUST_API_KEY=braintrust-api-key
 BRAINTRUST_PROMPT_SLUG=braintrust-prompt-slug
