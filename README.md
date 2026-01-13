@@ -2,12 +2,10 @@
 
 This app generates **Screens** (rendered HTML) from natural language prompts, where every screen is composed of **reusable Components**.
 
-## Setup
-
 1) Install dependencies:
 
 ```bash
-bun install
+bun install # you should also be able to use other package managers
 ```
 
 2) Set environment variables:
