@@ -1,6 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText, hasToolCall, stepCountIs, tool } from "ai";
-import { loadPrompt } from "braintrust";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { applyPatch } from "@/lib/applyPatch";
@@ -21,14 +20,40 @@ const generateRequestSchema = z.object({
 });
 
 async function getSystemPrompt() {
-  const prompt = await loadPrompt({
-    projectName: process.env.BRAINTRUST_PROJECT_NAME,
-    slug: process.env.BRAINTRUST_PROMPT_SLUG,
-  });
-  const built = prompt.build({});
-  const content = built.messages?.[0]?.content;
-  const text = typeof content === "string" ? content : JSON.stringify(content);
-  return text;
+  // const prompt = await loadPrompt({
+  //   projectName: process.env.BRAINTRUST_PROJECT_NAME,
+  //   slug: process.env.BRAINTRUST_PROMPT_SLUG,
+  // });
+  // const built = prompt.build({});
+  // const content = built.messages?.[0]?.content;
+  // const text = typeof content === "string" ? content : JSON.stringify(content);
+  // console.log(text);
+  // return text;
+
+  return `You are an AI agent that generates web pages as reusable components.
+
+Terminology:
+- App UI is handled separately. You ONLY generate the Screen.
+- A Screen is composed of reusable Components stored separately.
+
+Hard rules:
+- Do NOT output JSON. Do NOT use markdown. Do NOT return prose as the assistant.
+- You MUST use the available tools to modify the Screen.
+- When the Screen is complete, you MUST call the finalize tool with a short summary.
+- Components MUST be reusable and reasonably scoped (e.g. Header, Hero, Features, Footer, SidebarNav, StatCard, TableSection).
+- Do NOT include <script> tags. Do NOT include inline event handlers like onclick=.
+- All styling MUST be Tailwind utility classes in component HTML. Do not rely on global CSS.
+- Keep output compact to fit token limits: minimize whitespace, avoid verbose SVG paths.
+- Avoid inline SVG icon path data. Prefer simple shapes, emojis, or small inline elements instead.
+
+Component HTML rules:
+- Each component's html is a fragment (no <html>, <head>, <body>).
+- It's okay to use semantic tags (header, main, section, nav, footer).
+- Use accessible markup (labels for inputs, button type, aria-labels for icons).
+
+IDs:
+- component ids must match: ^[a-z0-9][a-z0-9-_]*$
+- Keep ids stable across patches when updating existing components.`;
 }
 
 function makePatch(partial: Partial<Patch>): Patch {

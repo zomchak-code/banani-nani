@@ -8,7 +8,12 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { applyPatch } from "@/lib/applyPatch";
-import { renderComponentSrcDoc, renderScreenSrcDoc } from "@/lib/renderScreen";
+import {
+  buildComponentExportPayload,
+  buildExportPayload,
+  renderComponentSrcDoc,
+  renderScreenSrcDoc,
+} from "@/lib/renderScreen";
 import {
   patchSchema,
   type ScreenState,
@@ -36,6 +41,26 @@ function makeId() {
     return maybe;
   }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function sanitizeFilename(input: string) {
+  const cleaned = input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "-");
+  return cleaned.replace(/^-+|-+$/g, "") || "banani-export";
+}
+
+function downloadTextFile(filename: string, contents: string) {
+  const blob = new Blob([contents], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function parseSseEvents(buffer: string): { events: SseEvent[]; rest: string } {
@@ -150,6 +175,10 @@ export default function Home() {
     [screen, selectedComponentId]
   );
 
+  const canExportScreen = Boolean(screen) && !loading;
+  const canExportComponent =
+    Boolean(screen) && Boolean(selectedComponentId) && !loading;
+
   const reset = () => {
     setPrompt("");
     setMessages([]);
@@ -157,6 +186,37 @@ export default function Home() {
     setSelectedComponentId(null);
     setLoading(false);
     setError(null);
+  };
+
+  const onExportScreen = () => {
+    if (!screen) {
+      return;
+    }
+    try {
+      const payload = buildExportPayload(screen);
+      const title = screen.title ?? "banani-screen";
+      const filename = `${sanitizeFilename(title)}.html`;
+      downloadTextFile(filename, payload);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Export failed";
+      setError(message);
+    }
+  };
+
+  const onExportComponent = () => {
+    if (!(screen && selectedComponentId)) {
+      return;
+    }
+    try {
+      const payload = buildComponentExportPayload(screen, selectedComponentId);
+      const component =
+        screen.components[selectedComponentId]?.name ?? selectedComponentId;
+      const filename = `${sanitizeFilename(component)}.html`;
+      downloadTextFile(filename, payload);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Export failed";
+      setError(message);
+    }
   };
 
   async function consumeGenerateStream(
@@ -338,6 +398,22 @@ export default function Home() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="flex items-center justify-between px-4 text-muted-foreground text-xs">
+                  <div>Component preview</div>
+                  <Button
+                    disabled={!canExportComponent}
+                    onClick={onExportComponent}
+                    size="sm"
+                    title={
+                      selectedComponentId
+                        ? "Export selected component preview"
+                        : "Select a component to export"
+                    }
+                    variant="outline"
+                  >
+                    Export preview
+                  </Button>
+                </div>
                 <div className="min-h-0 flex-1 overflow-hidden bg-white">
                   <iframe
                     className="h-full w-full"
@@ -352,7 +428,7 @@ export default function Home() {
 
             <div className="hidden bg-border lg:block" />
 
-            <section className="relative min-h-0 bg-white">
+            <section className="relative flex min-h-0 flex-col bg-white">
               {loading ? (
                 <div className="absolute inset-0 z-10 grid place-items-center bg-background/70 backdrop-blur-sm">
                   <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-sm">
@@ -361,8 +437,24 @@ export default function Home() {
                   </div>
                 </div>
               ) : null}
+              <div className="flex items-center justify-between px-4 py-2 text-muted-foreground text-xs">
+                <div>Screen preview</div>
+                <Button
+                  disabled={!canExportScreen}
+                  onClick={onExportScreen}
+                  size="sm"
+                  title={
+                    screen
+                      ? "Export layout and component code"
+                      : "Generate a screen to export"
+                  }
+                  variant="outline"
+                >
+                  Export layout
+                </Button>
+              </div>
               <iframe
-                className="h-full w-full"
+                className="h-full w-full flex-1"
                 referrerPolicy="no-referrer"
                 sandbox="allow-scripts"
                 srcDoc={srcDoc}

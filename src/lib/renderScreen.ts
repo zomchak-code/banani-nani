@@ -10,6 +10,10 @@ function stripScriptsAndHandlers(input: string) {
   return out;
 }
 
+function escapeHtmlTitle(input: string) {
+  return input.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
 export function renderScreenSrcDoc(screen: ScreenState | null): string {
   const title = screen?.title ?? "Generated Screen";
   const globalCss = screen?.globalCss ?? "";
@@ -40,7 +44,7 @@ export function renderScreenSrcDoc(screen: ScreenState | null): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title.replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</title>
+    <title>${escapeHtmlTitle(title)}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root { color-scheme: light; }
@@ -79,7 +83,7 @@ export function renderComponentSrcDoc(
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title.replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</title>
+    <title>${escapeHtmlTitle(title)}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root { color-scheme: light; }
@@ -94,4 +98,71 @@ export function renderComponentSrcDoc(
     </div>
   </body>
 </html>`;
+}
+
+export function buildExportPayload(screen: ScreenState): string {
+  const title = screen.title ?? "Generated Screen";
+  const safeGlobalCss = stripScriptsAndHandlers(screen.globalCss ?? "");
+  const layoutHtml = screen.layout
+    .map((id) => screen.components[id]?.html)
+    .filter(Boolean)
+    .map((html) => stripScriptsAndHandlers(html ?? ""))
+    .join("\n");
+
+  const layoutSet = new Set(screen.layout);
+  const entries = Object.entries(screen.components);
+  entries.sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+
+  const componentBlocks = entries
+    .map(([id, comp]) => {
+      const name = comp.name ?? id;
+      const safeHtml = stripScriptsAndHandlers(comp.html);
+      const inLayout = layoutSet.has(id);
+      const layoutTag = inLayout ? "in layout" : "unused";
+      return `<!-- Component: ${name} (${id}) | ${layoutTag} -->\n<template id="${id}">\n${safeHtml}\n</template>`;
+    })
+    .join("\n\n");
+
+  const generatedAt = new Date().toISOString();
+  const layoutSection =
+    layoutHtml.trim().length > 0
+      ? layoutHtml
+      : `<div class="text-sm text-zinc-500">No layout components.</div>`;
+  const componentsSection =
+    componentBlocks.trim().length > 0
+      ? componentBlocks
+      : "<!-- No components available. -->";
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtmlTitle(title)}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root { color-scheme: light; }
+      html, body { height: 100%; }
+      body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+      ${safeGlobalCss}
+    </style>
+  </head>
+  <body>
+    <!-- Generated: ${generatedAt} -->
+    <!-- Layout -->
+    <div class="min-h-screen bg-zinc-50 text-zinc-900">
+      ${layoutSection}
+    </div>
+
+    <!-- Components -->
+    ${componentsSection}
+  </body>
+</html>`;
+}
+
+export function buildComponentExportPayload(
+  screen: ScreenState | null,
+  componentId: string | null
+): string {
+  return renderComponentSrcDoc(screen, componentId);
 }
