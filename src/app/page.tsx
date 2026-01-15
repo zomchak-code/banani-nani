@@ -5,12 +5,10 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { applyPatch } from "@/lib/applyPatch";
-import { renderScreenSrcDoc } from "@/lib/renderScreen";
+import { renderComponentSrcDoc, renderScreenSrcDoc } from "@/lib/renderScreen";
 import {
   patchSchema,
   type ScreenState,
@@ -133,14 +131,24 @@ export default function Home() {
 
   const layoutIds = screen?.layout ?? [];
   const componentIds = useMemo(() => {
-    const ids = Object.keys(screen?.components ?? {});
-    ids.sort();
-    return ids;
+    const components = screen?.components ?? {};
+    const layout = screen?.layout ?? [];
+    const layoutSet = new Set(layout);
+    const remaining = Object.keys(components).filter(
+      (id) => !layoutSet.has(id)
+    );
+    remaining.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    return [...layout, ...remaining];
   }, [screen]);
 
   const selected = selectedComponentId
     ? screen?.components[selectedComponentId]
     : null;
+
+  const selectedSrcDoc = useMemo(
+    () => renderComponentSrcDoc(screen, selectedComponentId),
+    [screen, selectedComponentId]
+  );
 
   const reset = () => {
     setPrompt("");
@@ -274,69 +282,77 @@ export default function Home() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="grid h-full min-h-0 w-full grid-cols-1 gap-4 p-4 lg:grid-cols-[360px_1fr_360px]">
-          <Card className="h-full overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Prompt</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Textarea
-                className="min-h-[120px]"
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                    e.preventDefault();
-                    onSubmit();
-                  }
-                }}
-                placeholder='e.g. "E-commerce product page for sneakers"'
-                value={prompt}
-              />
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-muted-foreground text-xs">
-                  Send: Ctrl/⌘ + Enter
-                </div>
-                <Button disabled={loading || !prompt.trim()} onClick={onSubmit}>
-                  Generate
-                </Button>
+        <div className="grid min-h-0 flex-1 grid-rows-[1fr_1px_auto] border-t">
+          <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[1fr_1px_1fr]">
+            <section className="flex min-h-0 flex-col gap-4">
+              <div className="px-4 pt-4 font-semibold text-base">
+                Components
               </div>
-              {error ? (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs">
-                  {error}
-                </div>
-              ) : null}
-              <Separator />
-              <div className="space-y-2">
-                <div className="font-medium text-muted-foreground text-xs">
-                  Session
-                </div>
-                <ScrollArea
-                  className="rounded-md border bg-muted/20"
-                  maxHeightClassName="max-h-[320px] lg:max-h-[420px]"
-                >
-                  <div className="space-y-2 p-3">
-                    {messages.length === 0 ? (
-                      <div className="text-muted-foreground text-xs">
-                        No messages yet.
+              <div className="px-4">
+                <ScrollArea maxHeightClassName="max-h-[360px] lg:max-h-[420px]">
+                  <div>
+                    {screen && componentIds.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        {componentIds.map((id) => {
+                          const inLayout = layoutIds.includes(id);
+                          const isSelected = id === selectedComponentId;
+                          const name = screen.components[id]?.name ?? id;
+                          return (
+                            <button
+                              className={cn(
+                                "flex h-full w-full flex-col items-start gap-3 rounded-md border bg-background p-3 text-left text-sm transition hover:bg-accent",
+                                isSelected && "border-foreground/20 bg-accent"
+                              )}
+                              key={id}
+                              onClick={() => setSelectedComponentId(id)}
+                              type="button"
+                            >
+                              <div className="min-w-0 space-y-1">
+                                <div className="truncate font-medium">
+                                  {name}
+                                </div>
+                                <div className="truncate text-muted-foreground text-xs">
+                                  {id}
+                                </div>
+                              </div>
+                              {inLayout ? (
+                                <Badge className="mt-auto" variant="secondary">
+                                  in layout
+                                </Badge>
+                              ) : (
+                                <Badge className="mt-auto" variant="outline">
+                                  unused
+                                </Badge>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     ) : (
-                      messages.map((m) => (
-                        <div className="space-y-1" key={m.id}>
-                          <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                            {m.role}
-                          </div>
-                          <div className="text-sm leading-5">{m.content}</div>
-                        </div>
-                      ))
+                      <div className="text-muted-foreground text-sm">
+                        Generate a screen to see components.
+                      </div>
                     )}
                   </div>
                 </ScrollArea>
               </div>
-            </CardContent>
-          </Card>
 
-          <Card className="h-full overflow-hidden">
-            <CardContent className="relative h-full bg-white p-0">
+              <div className="flex min-h-0 flex-1 flex-col gap-2">
+                <div className="min-h-0 flex-1 overflow-hidden bg-white">
+                  <iframe
+                    className="h-full w-full"
+                    referrerPolicy="no-referrer"
+                    sandbox="allow-scripts"
+                    srcDoc={selectedSrcDoc}
+                    title={selected ? `Preview ${selected.name}` : "Preview"}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <div className="hidden bg-border lg:block" />
+
+            <section className="relative min-h-0 bg-white">
               {loading ? (
                 <div className="absolute inset-0 z-10 grid place-items-center bg-background/70 backdrop-blur-sm">
                   <div className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-sm">
@@ -352,77 +368,79 @@ export default function Home() {
                 srcDoc={srcDoc}
                 title="Generated screen"
               />
-            </CardContent>
-          </Card>
+            </section>
+          </div>
 
-          <Card className="flex h-full flex-col overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Components</CardTitle>
-            </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-              <ScrollArea
-                className="shrink-0 rounded-md border"
-                maxHeightClassName="max-h-[260px] lg:max-h-[340px]"
-              >
-                <div className="p-2">
-                  {screen && componentIds.length > 0 ? (
-                    <div className="space-y-1">
-                      {componentIds.map((id) => {
-                        const inLayout = layoutIds.includes(id);
-                        const isSelected = id === selectedComponentId;
-                        const name = screen.components[id]?.name ?? id;
-                        return (
-                          <button
-                            className={cn(
-                              "flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent",
-                              isSelected && "bg-accent"
-                            )}
-                            key={id}
-                            onClick={() => setSelectedComponentId(id)}
-                            type="button"
-                          >
-                            <div className="min-w-0">
-                              <div className="truncate font-medium">{name}</div>
-                              <div className="truncate text-muted-foreground text-xs">
-                                {id}
+          <div className="bg-border" />
+
+          <section className="overflow-visible p-4">
+            <div className="font-semibold text-base">Prompt</div>
+            <div className="mt-3 space-y-3">
+              <Textarea
+                className="min-h-[120px]"
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    onSubmit();
+                  }
+                }}
+                placeholder='e.g. "E-commerce product page for sneakers"'
+                value={prompt}
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-muted-foreground text-xs">
+                  Send: Ctrl/⌘ + Enter
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="group relative">
+                    <Button size="sm" type="button" variant="ghost">
+                      History
+                    </Button>
+                    <div className="pointer-events-none absolute right-0 bottom-full z-50 w-2xl opacity-0 transition group-hover:pointer-events-auto group-hover:opacity-100">
+                      <div className="rounded-lg border bg-card p-3 shadow-lg">
+                        <div className="mb-2 text-muted-foreground text-xs">
+                          Session history
+                        </div>
+                        <ScrollArea maxHeightClassName="max-h-64">
+                          <div className="space-y-2 pr-2">
+                            {messages.length === 0 ? (
+                              <div className="text-muted-foreground text-xs">
+                                No messages yet.
                               </div>
-                            </div>
-                            {inLayout ? (
-                              <Badge variant="secondary">in layout</Badge>
                             ) : (
-                              <Badge variant="outline">unused</Badge>
+                              messages.map((m) => (
+                                <div className="space-y-1" key={m.id}>
+                                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                    {m.role}
+                                  </div>
+                                  <div className="text-sm leading-5">
+                                    {m.content}
+                                  </div>
+                                </div>
+                              ))
                             )}
-                          </button>
-                        );
-                      })}
+                          </div>
+                        </ScrollArea>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="p-2 text-muted-foreground text-sm">
-                      Generate a screen to see components.
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-
-              <div className="flex min-h-0 flex-1 flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <div className="font-medium text-muted-foreground text-xs">
-                    Selected component
                   </div>
-                  {selectedComponentId ? (
-                    <Badge variant="outline">{selectedComponentId}</Badge>
-                  ) : null}
-                </div>
-                <div className="min-h-0 flex-1 rounded-md border bg-muted/20">
-                  <pre className="wrap-break-word h-full overflow-auto whitespace-pre-wrap p-3 text-xs leading-5">
-                    {selected
-                      ? selected.html
-                      : "Select a component to view its HTML."}
-                  </pre>
+                  <Button
+                    disabled={loading || !prompt.trim()}
+                    onClick={onSubmit}
+                    size="sm"
+                  >
+                    Generate
+                  </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              {error ? (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs">
+                  {error}
+                </div>
+              ) : null}
+            </div>
+          </section>
         </div>
       </div>
     </div>
