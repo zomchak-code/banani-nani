@@ -411,7 +411,7 @@ export default function Home() {
                     }
                     variant="outline"
                   >
-                    Export preview
+                    Export section
                   </Button>
                 </div>
                 <div className="min-h-0 flex-1 overflow-hidden bg-white">
